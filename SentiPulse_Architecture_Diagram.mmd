@@ -1,0 +1,113 @@
+graph TD
+    %% Styles
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:black;
+    classDef server fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
+    classDef worker fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:black;
+    classDef storage fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+    classDef future fill:#f5f5f5,stroke:#9e9e9e,stroke-width:2px,stroke-dasharray: 5 5,color:#616161;
+    classDef flow stroke:#607d8b,stroke-width:2px,color:#455a64;
+
+    %% Client Layer
+    subgraph Client [Client Layer (React/Vite)]
+        direction TB
+        
+        subgraph Components [UI Components]
+            VU[VideoUpload]:::client
+            RES[Results]:::client
+            SH[SessionHistory]:::client
+            PS[ProcessingStatus]:::client
+        end
+
+        subgraph ClientServices [Client Services]
+            WS[WellbeingService]:::client
+            HS[HistoryService]:::client
+            TAS[TextAnalysisService]:::client
+            FaceAPI[Face API (Live Overlay)]:::client
+        end
+
+        %% Internal Client Flows
+        VU -- "Webcam Mode (Stream)" --> FaceAPI
+        VU -- "Record" --> MR[MediaRecorder API]:::client
+        MR -- "Blob" --> VU
+        
+        RES -- "User Input (Stress + Note)" --> TAS
+        TAS -- "Sentiment & Crisis Flag" --> WS
+        WS -- "Fused Wellbeing Score" --> HS
+        
+        HS -- "Save Session" --> LS[(LocalStorage)]:::storage
+        LS -.-> SH
+    end
+
+    %% Server Layer
+    subgraph Server [Server Layer (Node.js/Express)]
+        direction TB
+        
+        API[API Routes]:::server
+        PM[Process Manager]:::server
+        WSS[WebSocket Server]:::server
+        Static[Static File Server]:::server
+        
+        API -- "/api/process-video" --> PM
+        PM -- "Spawn Child Process" --> Worker
+        PM -- "Events" --> WSS
+        WSS -- "Status Updates" --> PS
+    end
+
+    %% Processing Layer
+    subgraph Worker [Processing Layer (Python Microservice)]
+        direction TB
+        
+        Main[process_video.py]:::worker
+        HRM[heart_rate_model.py]:::worker
+        
+        subgraph Logic [Core Logic]
+            FD[FaceDetection (Haar)]:::worker
+            RPPG[rPPG Extraction (ICA/PCA)]:::worker
+            SQ[SignalQualityEstimator]:::worker
+            EA[EmotionAnalysis (FER)]:::worker
+        end
+        
+        Main --> HRM
+        HRM --> FD
+        FD --> RPPG
+        FD --> EA
+        RPPG --> SQ
+    end
+
+    %% Storage Layer
+    subgraph Storage [Data Layer]
+        FS_Uploads[File System /uploads]:::storage
+        FS_Static[File System /static]:::storage
+        
+        DB[(Future Database)]:::future
+    end
+
+    %% Future Extensions
+    subgraph Future [Future Extensions]
+        Auth[Auth Service]:::future
+        Mobile[Mobile Client]:::future
+    end
+
+    %% Cross-Layer Data Flows
+    VU -- "Upload Video (File/Blob)" --> API
+    API -- "Save Temp File" --> FS_Uploads
+    FS_Uploads -- "Read Video" --> Main
+    
+    Worker -- "Generate Plots" --> FS_Static
+    FS_Static -.-> RES
+    
+    Worker -- "JSON Result (HR, Emotions)" --> PM
+    PM -- "HTTP Response" --> RES
+    
+    %% Future Connections
+    Auth -.-> API
+    API -.-> DB
+
+    %% Legend
+    subgraph Legend [Legend]
+        L1[Client Component]:::client
+        L2[Server Component]:::server
+        L3[Python Worker]:::worker
+        L4[Storage]:::storage
+        L5[Future/Planned]:::future
+    end

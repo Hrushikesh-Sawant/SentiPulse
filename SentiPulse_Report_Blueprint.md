@@ -1,0 +1,219 @@
+# SentiPulse: Full-Repository Analysis & Report Blueprint
+
+## 1. Executive Summary / Abstract
+
+SentiPulse is a non-contact physiological and emotional monitoring system designed to assess human wellbeing using standard webcams. By leveraging remote Photoplethysmography (rPPG) and facial expression recognition, the system estimates heart rate and emotional states without requiring wearable sensors. This report details the system's architecture, which combines a React-based frontend for user interaction with a Node.js backend and Python-based signal processing microservices. The system aims to provide accessible, real-time health insights for applications in telemedicine, remote work monitoring, and personal wellness.
+
+## 2. Project Title & Problem Statement
+
+**Project Title:** SentiPulse (Physiological Monitoring System)
+
+**Problem Statement:**
+Traditional methods for monitoring physiological signals (like heart rate) and emotional states often rely on invasive wearable devices or clinical equipment, which can be expensive, uncomfortable, and impractical for continuous remote monitoring. There is a growing need for accessible, non-invasive tools to track mental and physical wellbeing, especially in remote education, telehealth, and corporate wellness sectors. SentiPulse addresses this by utilizing ubiquitous webcam technology to extract health metrics from video data.
+
+## 3. Stakeholder / User Context, Use-Cases & Scenarios
+
+**Stakeholders:**
+*   **End Users:** Individuals seeking personal wellness tracking.
+*   **Healthcare Providers:** Doctors conducting remote consultations.
+*   **Employers/Educators:** Organizations monitoring stress levels (with consent).
+*   **Developers/Researchers:** Contributors improving the rPPG algorithms.
+
+**Use-Cases:**
+*   **Remote Health Check:** A patient records a 10-second video before a telehealth appointment to provide vitals.
+*   **Stress Management:** An employee checks their stress level during a break to decide if they need a breathing exercise.
+*   **Mental Health Journaling:** A user logs their daily mood alongside physiological data to track trends over time.
+
+## 4. Requirements Specification
+
+### Functional Requirements
+*   **Video Capture:** The system must capture video from a webcam or accept file uploads.
+*   **Face Detection:** The system must detect and track the user's face within the video frame.
+*   **Heart Rate Estimation:** The system must estimate heart rate (BPM) using rPPG techniques (ICA/PCA).
+*   **Emotion Recognition:** The system must classify facial expressions into 7 basic emotions.
+*   **Wellbeing Scoring:** The system must compute a composite wellbeing score based on physiological and emotional data.
+*   **Visualization:** The system must display real-time signal plots (RGB, FFT) and results to the user.
+*   **Reporting:** The system must allow users to save or print their analysis results.
+
+### Non-Functional Requirements
+*   **Accuracy:** Heart rate estimation should be within ±5 BPM of ground truth under good lighting.
+*   **Latency:** Video processing should complete within 2x the video duration (e.g., <20s for a 10s video).
+*   **Privacy:** Video data must be processed transiently and deleted after analysis; no permanent storage of raw video.
+*   **Usability:** The UI should be intuitive and responsive across devices.
+*   **Scalability:** The backend should handle concurrent requests via queueing or horizontal scaling (currently limited by CPU).
+
+## 5. Tech Stack
+
+| Component | Technology | Description |
+|-----------|------------|-------------|
+| **Frontend** | React, Vite | Modern UI framework for fast, component-based development. |
+| **Styling** | Tailwind CSS | Utility-first CSS framework for responsive design. |
+| **Backend** | Node.js, Express | REST API and static file serving. |
+| **Real-time** | WebSocket (`ws`) | Real-time status updates from server to client. |
+| **Processing** | Python 3 | Core signal processing and machine learning logic. |
+| **Computer Vision** | OpenCV (`cv2`) | Face detection and image processing. |
+| **Math/Signal** | NumPy, SciPy | Numerical operations, FFT, and signal filtering. |
+| **ML/AI** | scikit-learn, FER | ICA/PCA algorithms and Facial Expression Recognition. |
+
+## 6. Architecture Diagram
+
+![Architecture Diagram](path/to/architecture_diagram.png)
+
+*Placeholder Description:* The architecture follows a client-server model. The **Client (React)** sends video data to the **Server (Node.js)** via HTTP POST. The Server saves the file temporarily and spawns a **Python Child Process**. The Python script processes the video, generating JSON results and plot images. These are returned to the Server, which broadcasts updates via **WebSocket** and sends the final response to the Client.
+
+## 7. System Integration & Interaction
+
+*   **API Interface:** RESTful endpoints (e.g., `/api/process-video`) handle data ingestion.
+*   **Module Communication:**
+    *   Node.js -> Python: `child_process.spawn` executes the script, passing file paths and arguments.
+    *   Python -> Node.js: JSON output via `stdout`.
+    *   Server -> Client: WebSocket events (`processing_start`, `processing_complete`) for progress tracking.
+*   **Data Flow:**
+    1.  User Upload -> `multer` middleware -> `uploads/` directory.
+    2.  Server triggers `process_video.py`.
+    3.  Python script reads video -> extracts signals -> writes plots to `static/`.
+    4.  Results JSON sent back to Client -> Rendered in `Results.jsx`.
+
+## 8. Modules / Features and Logic of Each
+
+### A. Frontend Client
+*   **VideoUpload:** Handles file selection, drag-and-drop, and webcam recording (using MediaRecorder API).
+*   **Results:** Displays the analysis dashboard, including heart rate, emotion cards, and signal plots.
+*   **ProcessingStatus:** Shows a progress bar and real-time status messages during analysis.
+*   **SessionHistory:** (Implied) Tracks past results for the user session.
+
+### B. Backend Server
+*   **API Gateway:** Express routes for health checks and video processing.
+*   **Process Manager:** Manages Python subprocesses, enforcing timeouts (5 mins) and error handling.
+*   **Static Server:** Serves the React build and generated plot images.
+
+### C. Analysis Engine (Python)
+*   **Signal Extraction:** Converts video frames to RGB traces from the facial ROI.
+*   **Blind Source Separation:** Applies ICA (Independent Component Analysis) or PCA to isolate the blood volume pulse from noise.
+*   **Frequency Analysis:** Uses Fast Fourier Transform (FFT) to find the dominant heart rate frequency.
+*   **Emotion Classifier:** Uses a pre-trained CNN (via `fer` library) to detect emotions.
+
+## 9. File-by-File Explanation
+
+### Backend & Root
+*   **`server/index.js`**: The main entry point. Configures Express, WebSocket, Multer for uploads, and handles the `/api/process-video` route which spawns the Python script.
+*   **`package.json`**: Defines project metadata and scripts (`npm run dev`, `npm start`).
+
+### Python Services
+*   **`python_services/process_video.py`**: CLI wrapper for the model. Validates inputs, calls `process_video`, measures execution time, and formats the output as JSON.
+*   **`python_services/heart_rate_model.py`**: The core library. Contains:
+    *   `detect_face()`: Haar Cascade face detection.
+    *   `extract_rgb_signals()`: Spatial averaging of ROI.
+    *   `apply_ica()` / `apply_pca()`: Signal decomposition.
+    *   `estimate_heart_rate()`: FFT and SNR calculation.
+    *   `analyze_emotions()`: Frame-by-frame emotion detection.
+*   **`python_services/evaluate_system.py`**: Script for batch testing the system against a dataset defined in a config file.
+
+### Frontend
+*   **`client/src/components/VideoUpload.jsx`**: UI for uploading files or recording video.
+*   **`client/src/components/Results.jsx`**: Comprehensive results view. Logic for rendering "Low/Normal/High" badges and plotting images.
+*   **`client/src/services/wellbeing.js`**: Logic for calculating the "Wellbeing Score" based on HR and emotion weights.
+
+## 10. Algorithms Used
+
+*   **Haar Cascade Classifier:** Used for face detection. Selected for its speed and low computational cost compared to deep learning models, suitable for real-time ROI extraction.
+*   **Spatial Averaging:** Averages pixel values in the Green/Red/Blue channels within the facial ROI. This reduces camera quantization noise.
+*   **Independent Component Analysis (ICA):** Used to separate the underlying photoplethysmographic signal (blood volume change) from motion artifacts and lighting variations. It assumes the sources are statistically independent.
+*   **Fast Fourier Transform (FFT):** Converts the time-domain rPPG signal into the frequency domain to identify the dominant frequency corresponding to the heart rate (typically 0.75–3.0 Hz).
+*   **MTCNN / CNN (via FER):** Convolutional Neural Networks used for robust facial expression recognition.
+
+## 11. Database Design
+
+*   **Current State:** The system is currently **stateless** regarding persistent data storage.
+    *   **Session Data:** Stored in-memory on the client (React state).
+    *   **Files:** Temporary storage in `server/uploads/` and `python_services/static/`.
+    *   **History:** Likely managed via `localStorage` on the browser (implied by `history.js`).
+*   **Rationale:** For a privacy-focused MVP, avoiding a central database reduces liability and setup complexity.
+*   **Proposed Schema (for future):**
+    *   `Users` (id, username, password_hash)
+    *   `Sessions` (id, user_id, timestamp, heart_rate, dominant_emotion, wellbeing_score)
+    *   `Readings` (id, session_id, signal_quality_metrics)
+
+## 12. Metrics Used + Justification
+
+*   **Heart Rate (BPM):** The core physiological metric. Calculated from the peak frequency in the FFT spectrum.
+*   **Signal-to-Noise Ratio (SNR):** Measured in dB. Justifies the confidence in the HR estimate. Low SNR (<2dB) triggers a "poor quality" warning.
+*   **Face Coverage (%):** The ratio of frames where a face was detected. Ensures the user sat still and was visible.
+*   **Emotion Probability Distribution:** The % likelihood of each of the 7 emotions. Used to compute the dominant emotion.
+*   **Wellbeing Score (-1 to 8):** A custom composite metric.
+    *   *Calculation:* `HR_Score` (based on deviation from resting) + `Neg_Affect` * 3.0 - `Pos_Affect` * 2.0.
+    *   *Justification:* Provides a single, easy-to-understand number for the user to track their overall state.
+
+## 13. Testing Strategy & Key Results
+
+*   **Unit Testing:** Python functions (like `estimate_heart_rate`) can be tested in isolation.
+*   **Integration Testing:** `evaluate_system.py` runs the full pipeline on labeled videos to compare `hr_est` vs `hr_true`.
+*   **Metrics:**
+    *   **Mean Absolute Error (MAE):** The primary accuracy metric for Heart Rate.
+    *   **Pearson Correlation:** Used to correlate estimated wellbeing with self-reported stress.
+*   **Performance:** Latency is tracked per request. Current target is <2x real-time.
+
+## 14. Deployment & Environment Setup
+
+*   **OS:** Windows (current dev env), Linux (production target).
+*   **Dependencies:**
+    *   Node.js v16+
+    *   Python 3.8+ (pip requirements: `opencv-python`, `numpy`, `scipy`, `fer`, `scikit-learn`)
+*   **Build Instructions:**
+    1.  `npm install:all` (Custom script to install root, client, and python deps).
+    2.  `npm run build` (Builds React frontend).
+    3.  `npm start` (Starts Express server).
+*   **Docker:** `Dockerfile` and `docker-compose.yml` are present for containerized deployment.
+
+## 15. Project Timeline & Milestones
+
+*   **Phase 1: Prototype (Completed)** - Basic rPPG pipeline and CLI.
+*   **Phase 2: Web Integration (Completed)** - React frontend, Node.js backend, and file upload.
+*   **Phase 3: Enhancement (Current)** - Webcam recording, wellbeing scoring, UI polish.
+*   **Phase 4: Validation (In Progress)** - Batch evaluation script and accuracy tuning.
+*   **Phase 5: Production (Future)** - User accounts, database integration, and cloud deployment.
+
+## 16. Risk Analysis & Mitigation
+
+*   **Lighting Conditions:**
+    *   *Risk:* Poor lighting degrades signal quality.
+    *   *Mitigation:* SNR checks and UI warnings ("Please improve lighting").
+*   **Motion Artifacts:**
+    *   *Risk:* Head movement introduces noise.
+    *   *Mitigation:* ICA algorithm and Face Coverage metric to invalidate bad segments.
+*   **Model Bias:**
+    *   *Risk:* rPPG and FER may perform differently across skin tones.
+    *   *Mitigation:* Testing on diverse datasets; acknowledging limitations in the report.
+
+## 17. Ethical / Privacy / Security Considerations
+
+*   **Data Privacy:** Raw video is the most sensitive asset. The system is designed to process videos transiently and delete them immediately after analysis.
+*   **Consent:** Users must explicitly upload or record video.
+*   **Medical Disclaimer:** The system provides "wellness insights," not medical diagnoses. The UI explicitly states it is not a substitute for professional care.
+*   **Safety:** Crisis detection logic (in `Results.jsx`) scans self-reports for distress keywords to provide helpline resources.
+
+## 18. Contributions & Impact
+
+*   **Novelty:** Integrates physiological (rPPG) and psychological (FER) signals into a unified "Wellbeing Score."
+*   **Impact:** Democratizes access to health monitoring using commodity hardware (webcams), potentially lowering barriers to entry for telemedicine.
+
+## 19. Suggestions, Limitations & Future Scope
+
+*   **Limitations:**
+    *   Sensitive to lighting and motion.
+    *   Processing is CPU-intensive and may be slow on older hardware.
+    *   No long-term trend tracking (stateless).
+*   **Suggestions:**
+    *   Implement a database for history tracking.
+    *   Optimize Python code (e.g., GPU acceleration).
+    *   Add user authentication.
+*   **Future Scope:** Real-time streaming analysis (WebRTC) instead of record-then-upload.
+
+## 20. References & Appendices
+
+*   **Bibliography:**
+    *   *Poh, M. Z., et al. "Non-contact, automated cardiac pulse measurements using video imaging and blind source separation." Optics Express, 2010.*
+    *   *Verkruysse, W., et al. "Remote plethysmographic imaging of skin perfusion." Optics Express, 2008.*
+*   **Appendices:**
+    *   A: API Documentation (Swagger/OpenAPI).
+    *   B: Evaluation Dataset Details.

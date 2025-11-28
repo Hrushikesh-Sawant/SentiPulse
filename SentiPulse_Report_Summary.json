@@ -1,0 +1,93 @@
+{
+    "projectTitle": "SentiPulse: Physiological & Emotional State Monitoring System",
+    "version": "1.0.0",
+    "description": "A full-stack web application for real-time physiological (Heart Rate) and emotional state monitoring using non-contact video processing (rPPG) and facial expression analysis.",
+    "modules": [
+        {
+            "name": "Frontend Client",
+            "status": "complete",
+            "files": [
+                "client/src/App.jsx",
+                "client/src/components/VideoUpload.jsx",
+                "client/src/components/Results.jsx",
+                "client/src/services/wellbeing.js"
+            ],
+            "description": "React-based UI for video capture, upload, and result visualization."
+        },
+        {
+            "name": "Backend Server",
+            "status": "complete",
+            "files": [
+                "server/index.js"
+            ],
+            "description": "Node.js/Express server handling API requests, file uploads, and Python process management."
+        },
+        {
+            "name": "Signal Processing Service",
+            "status": "complete",
+            "files": [
+                "python_services/process_video.py",
+                "python_services/heart_rate_model.py"
+            ],
+            "description": "Python microservice for rPPG signal extraction and heart rate estimation using ICA/PCA."
+        },
+        {
+            "name": "Emotion Analysis Service",
+            "status": "complete",
+            "files": [
+                "python_services/heart_rate_model.py"
+            ],
+            "description": "Facial expression recognition using the FER library."
+        },
+        {
+            "name": "Evaluation Module",
+            "status": "complete",
+            "files": [
+                "python_services/evaluate_system.py",
+                "python_services/wellbeing_eval.py"
+            ],
+            "description": "Offline evaluation script for computing accuracy metrics against ground truth."
+        }
+    ],
+    "metrics": [
+        {
+            "name": "Heart Rate",
+            "definition": "Beats per minute (BPM) estimated from facial blood flow changes.",
+            "justification": "Primary physiological indicator of stress and arousal."
+        },
+        {
+            "name": "Emotion Probabilities",
+            "definition": "Confidence scores for 7 basic emotions (angry, disgust, fear, happy, sad, surprise, neutral).",
+            "justification": "Provides psychological context to the physiological data."
+        },
+        {
+            "name": "Wellbeing Score",
+            "definition": "Composite score (-1 to 8) derived from HR bands and emotional affect balance.",
+            "justification": "Synthesizes complex raw data into an actionable user-friendly metric."
+        },
+        {
+            "name": "Signal Quality (SNR)",
+            "definition": "Signal-to-Noise Ratio of the rPPG signal in dB.",
+            "justification": "Critical for assessing the reliability of the heart rate estimate."
+        },
+        {
+            "name": "Face Coverage",
+            "definition": "Percentage of frames where a face was successfully detected.",
+            "justification": "Indicates if the user remained in frame, affecting accuracy."
+        }
+    ],
+    "techStack": [
+        "React",
+        "Vite",
+        "Tailwind CSS",
+        "Node.js",
+        "Express",
+        "WebSocket",
+        "Python 3",
+        "OpenCV",
+        "NumPy",
+        "SciPy",
+        "scikit-learn",
+        "FER"
+    ]
+}
